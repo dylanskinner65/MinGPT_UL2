@@ -150,11 +150,22 @@ class GPT(nn.Module):
         ))
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
-        # init all weights, and apply a special scaled init to the residual projections, per GPT-2 paper
-        self.apply(self._init_weights)
-        for pn, p in self.named_parameters():
-            if pn.endswith('c_proj.weight'):
-                torch.nn.init.normal_(p, mean=0.0, std=0.02/math.sqrt(2 * config.n_layer))
+        '''This if statement is a change.'''
+        # If we are using a checkpoint, load it.
+        if config.checkpoint is not None:
+            self.checkpoint = torch.load(config.checkpoint)
+            self.transformer.load_state_dict(self.checkpoint['model_transformer'])
+            self.lm_head.load_state_dict(self.checkpoint['model_lm_head'])
+            self.iter_num = self.checkpoint['iter_num']
+            self.checkpoint_num = self.checkpoint['checkpoint_num']
+            
+        else:
+            # init all weights, and apply a special scaled init to the residual projections, per GPT-2 paper
+            self.checkpoint = None
+            self.apply(self._init_weights)
+            for pn, p in self.named_parameters():
+                if pn.endswith('c_proj.weight'):
+                    torch.nn.init.normal_(p, mean=0.0, std=0.02/math.sqrt(2 * config.n_layer))
 
         # report number of parameters (note we don't count the decoder parameters in lm_head)
         n_params = sum(p.numel() for p in self.transformer.parameters())
@@ -255,6 +266,8 @@ class GPT(nn.Module):
             {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
         ]
         optimizer = torch.optim.AdamW(optim_groups, lr=train_config.learning_rate, betas=train_config.betas)
+        if self.checkpoint:
+            optimizer.load_state_dict(self.checkpoint['optimizer_state_dict'])  # This is a change.
         return optimizer
 
     def forward(self, idx, targets=None):

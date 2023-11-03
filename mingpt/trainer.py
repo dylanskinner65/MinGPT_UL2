@@ -9,6 +9,7 @@ from collections import defaultdict
 import torch
 from torch.utils.data.dataloader import DataLoader
 from mingpt.utils import CfgNode as CN
+import numpy as np
 
 class Trainer:
 
@@ -75,9 +76,15 @@ class Trainer:
         )
 
         model.train()
-        self.iter_num = 0
+        self.iter_num = model.iter_num if hasattr(model, 'iter_num') else 0  # This is a change
+        self.since_last_save = 0  # This is a change
+        self.checkpoint_num = model.checkpoint_num if hasattr(model, 'checkpoint_num') else 0   # This is a change
         self.iter_time = time.time()
         data_iter = iter(train_loader)
+
+        # Define loss
+        self.loss = np.inf  # This is a change
+
         while True:
 
             # fetch the next batch (x, y) and re-init iterator if needed
@@ -88,6 +95,9 @@ class Trainer:
                 batch = next(data_iter)
             batch = [t.to(self.device) for t in batch]
             x, y = batch
+
+            # Get previous loss.
+            prev_loss = self.loss  # This is a change.
 
             # forward the model
             logits, self.loss = model(x, y)
@@ -103,6 +113,26 @@ class Trainer:
             tnow = time.time()
             self.iter_dt = tnow - self.iter_time
             self.iter_time = tnow
+            
+            # Save when we last saved the weights.
+            self.since_last_save += 1  # This is a change.
+
+            '''All of this is a change.'''
+            if self.loss <= prev_loss and self.since_last_save >= config.checkpoint_iters:
+                self.since_last_save = 0
+                
+                # Create and save our checkpoint
+                checkpoint = {
+                    'model_transformer': model.transformer.state_dict(),
+                    'model_lm_head': model.lm_head.state_dict(),
+                    'optimizer_state_dict': self.optimizer.state_dict(),
+                    'loss': self.loss,
+                    'iter_num': self.iter_num,
+                    'checkpoint_num': self.checkpoint_num,
+                }
+                torch.save(checkpoint, f'checkpoints/checkpoint_{self.checkpoint_num}.pth')
+                self.checkpoint_num += 1
+                
 
             # termination conditions
             if config.max_iters is not None and self.iter_num >= config.max_iters:
