@@ -3,4 +3,4 @@ __pycache__/
 *.swp
 .env
 .pylintrc
-.pth
+checkpoints/*.pth
