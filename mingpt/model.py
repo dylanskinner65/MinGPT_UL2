@@ -158,6 +158,7 @@ class GPT(nn.Module):
             self.lm_head.load_state_dict(self.checkpoint['model_lm_head'])
             self.iter_num = self.checkpoint['iter_num']
             self.checkpoint_num = self.checkpoint['checkpoint_num']
+            self.saved_loss = self.checkpoint['saved_loss']
             
         else:
             # init all weights, and apply a special scaled init to the residual projections, per GPT-2 paper
@@ -288,7 +289,7 @@ class GPT(nn.Module):
         # if we are given some desired targets also calculate the loss
         loss = None
         if targets is not None:
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)  # Changed class!
 
         return logits, loss
 

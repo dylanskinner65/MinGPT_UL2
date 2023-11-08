@@ -77,13 +77,16 @@ class Trainer:
 
         model.train()
         self.iter_num = model.iter_num if hasattr(model, 'iter_num') else 0  # This is a change
+        self.iter_list = model.iter_list if hasattr(model, 'iter_list') else []  # This is a change
         self.since_last_save = 0  # This is a change
         self.checkpoint_num = model.checkpoint_num if hasattr(model, 'checkpoint_num') else 0   # This is a change
         self.iter_time = time.time()
+        self.saved_loss = model.saved_loss if hasattr(model, 'saved_loss') else []  # This is a change
         data_iter = iter(train_loader)
+        checkpoint_name = config.checkpoint_name if hasattr(config, 'checkpoint_name') else 'checkpoint'  # This is a change
 
         # Define loss
-        self.loss = np.inf  # This is a change
+        self.loss = self.saved_loss[-1] if self.saved_loss else np.inf  # This is a change
 
         while True:
 
@@ -95,6 +98,8 @@ class Trainer:
                 batch = next(data_iter)
             batch = [t.to(self.device) for t in batch]
             x, y = batch
+            x = x.squeeze(0)  # This is a change.
+            y = y.squeeze(0)  # This is a change.
 
             # Get previous loss.
             prev_loss = self.loss  # This is a change.
@@ -128,9 +133,11 @@ class Trainer:
                     'optimizer_state_dict': self.optimizer.state_dict(),
                     'loss': self.loss,
                     'iter_num': self.iter_num,
+                    'iter_list': self.iter_list.append(self.iter_num),
                     'checkpoint_num': self.checkpoint_num,
+                    'saved_loss': self.saved_loss.append(self.loss)
                 }
-                torch.save(checkpoint, f'checkpoints/checkpoint_{self.checkpoint_num}.pth')
+                torch.save(checkpoint, f'checkpoints/{checkpoint_name}_{self.checkpoint_num}.pth')
                 self.checkpoint_num += 1
                 
 
