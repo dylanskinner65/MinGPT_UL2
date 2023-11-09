@@ -87,6 +87,7 @@ class Trainer:
 
         # Define loss
         self.loss = self.saved_loss[-1] if self.saved_loss else np.inf  # This is a change
+        self.curr_loss = []
 
         while True:
 
@@ -106,6 +107,7 @@ class Trainer:
 
             # forward the model
             logits, self.loss = model(x, y)
+            self.curr_loss.append(self.loss.detach())
 
             # backprop and update the parameters
             model.zero_grad(set_to_none=True)
